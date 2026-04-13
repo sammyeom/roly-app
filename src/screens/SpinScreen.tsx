@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,20 @@ import {
   StyleSheet,
   Animated,
   Easing,
-  useWindowDimensions,
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
+import { generateHapticFeedback } from '@apps-in-toss/framework';
 import NavigationBar from '../components/NavigationBar';
 import { type SpinParams, type ResultParams } from '../App';
-import { calcSpinDegree, getSelectedIndex } from '../utils/random';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const ITEM_HEIGHT = 72;
+const VISIBLE_COUNT = 5;       // 홀수여야 가운데 항목이 정렬됨
+const REPEAT_COUNT = 20;       // 슬롯 항목 반복 횟수
+const SPIN_SPINS = 7;          // 최소 회전 수
+
+// ─── Props ───────────────────────────────────────────────────────────────────
 
 interface SpinScreenProps {
   params: SpinParams;
@@ -19,252 +27,226 @@ interface SpinScreenProps {
   onBack: () => void;
 }
 
-const SLICE_COLORS = [
-  colors.blue500,
-  colors.blue600,
-  colors.green500,
-  colors.orange400,
-  colors.red500,
-  colors.grey600,
-  colors.grey700,
-  colors.grey800,
-];
+// ─── SpinScreen ──────────────────────────────────────────────────────────────
 
 export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScreenProps) {
   const { items, label } = params;
-  const { width } = useWindowDimensions();
-  const wheelSize = Math.min(width - 48, 320);
 
-  const spinValue = useRef(new Animated.Value(0)).current;
-  const currentDegree = useRef(0);
+  const translateY = useRef(new Animated.Value(0)).current;
+  const currentOffset = useRef(0);
+
   const [isSpinning, setIsSpinning] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'spinning' | 'done'>('idle');
 
-  const handleSpin = useCallback(() => {
+  // 슬롯 아이템 (items를 REPEAT_COUNT번 반복)
+  const spinItems = useMemo<string[]>(() => {
+    return Array.from({ length: REPEAT_COUNT }, () => items).flat();
+  }, [items]);
+
+  const handleSpin = useCallback(async (): Promise<void> => {
     if (isSpinning) return;
     setIsSpinning(true);
     setPhase('spinning');
 
-    const extraDegree = calcSpinDegree(items.length);
-    const targetDegree = currentDegree.current + extraDegree;
-    currentDegree.current = targetDegree;
+    // 당첨 인덱스 (items 기준)
+    const winnerIdx = Math.floor(Math.random() * items.length);
+    const winner = items[winnerIdx] ?? items[0] ?? '';
 
-    Animated.timing(spinValue, {
-      toValue: targetDegree,
-      duration: 4000,
+    // spinItems 기준 타깃 인덱스: 중반부 이후 반복에 위치시킴
+    const targetRepeat = Math.floor(REPEAT_COUNT * 0.65);
+    const targetIdx = targetRepeat * items.length + winnerIdx;
+
+    // 가운데(center)에 타깃이 오도록 오프셋 계산
+    const centerOffset = Math.floor(VISIBLE_COUNT / 2);
+    const targetY = -((targetIdx - centerOffset) * ITEM_HEIGHT);
+
+    // 이전 위치 초기화 후 애니메이션
+    translateY.setValue(0);
+    currentOffset.current = targetY;
+
+    Animated.timing(translateY, {
+      toValue: targetY,
+      duration: 2000,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-    }).start(() => {
+    }).start(async () => {
+      try {
+        await generateHapticFeedback({ type: 'success' });
+      } catch {
+        // 햅틱 실패는 조용히 처리
+      }
+
       setIsSpinning(false);
       setPhase('done');
 
-      const selectedIndex = getSelectedIndex(targetDegree % 360, items.length);
-      const result = items[selectedIndex] ?? items[0] ?? '';
-
       setTimeout(() => {
-        onNavigateResult({ result, spinParams: params });
-      }, 600);
+        onNavigateResult({ result: winner, spinParams: params });
+      }, 500);
     });
-  }, [isSpinning, items, spinValue, params, onNavigateResult]);
+  }, [isSpinning, items, translateY, params, onNavigateResult]);
 
-  const rotateInterpolation = spinValue.interpolate({
-    inputRange: [0, 360],
-    outputRange: ['0deg', '360deg'],
-    extrapolate: 'extend',
-  });
-
-  const sliceDeg = 360 / items.length;
+  const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
+  const centerTop = Math.floor(VISIBLE_COUNT / 2) * ITEM_HEIGHT;
 
   return (
     <View style={styles.container}>
-      <NavigationBar title={label} onBack={onBack} />
+      <NavigationBar title="Roly 🎲" onBack={onBack} />
 
       <View style={styles.body}>
-        <View style={styles.pointerWrapper}>
-          <View style={styles.pointer} />
+        {/* 슬롯 윈도우 */}
+        <View style={[styles.slotWrapper, { height: containerHeight }]}>
+          {/* 선택 하이라이트 */}
+          <View style={[styles.selectorHighlight, { top: centerTop, height: ITEM_HEIGHT }]} pointerEvents="none" />
+
+          <View style={[styles.slotWindow, { height: containerHeight }]}>
+            <Animated.View style={{ transform: [{ translateY }] }}>
+              {spinItems.map((item, index) => (
+                <SlotItem key={index} label={item} />
+              ))}
+            </Animated.View>
+          </View>
+
+          {/* 상단/하단 그라데이션 페이드 */}
+          <View style={[styles.fadeEdge, styles.fadeTop]} pointerEvents="none" />
+          <View style={[styles.fadeEdge, styles.fadeBottom]} pointerEvents="none" />
         </View>
 
-        <Animated.View
-          style={[
-            styles.wheel,
-            { width: wheelSize, height: wheelSize, borderRadius: wheelSize / 2 },
-            { transform: [{ rotate: rotateInterpolation }] },
-          ]}
-        >
-          {items.map((item, index) => (
-            <WheelSlice
-              key={index}
-              index={index}
-              total={items.length}
-              label={item}
-              sliceDeg={sliceDeg}
-              wheelSize={wheelSize}
-              bgColor={SLICE_COLORS[index % SLICE_COLORS.length] ?? colors.blue500}
-            />
+        {/* 항목 목록 */}
+        <View style={styles.chipsRow}>
+          {items.slice(0, 6).map((item, index) => (
+            <View key={index} style={styles.chip}>
+              <Text style={styles.chipText} numberOfLines={1}>
+                {item.length > 5 ? `${item.slice(0, 5)}…` : item}
+              </Text>
+            </View>
           ))}
-        </Animated.View>
-
-        <TouchableOpacity
-          style={[styles.centerButton, isSpinning && styles.centerButtonSpinning]}
-          onPress={handleSpin}
-          disabled={isSpinning}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.centerButtonText}>
-            {phase === 'idle' ? 'SPIN' : phase === 'spinning' ? '...' : '완료!'}
-          </Text>
-        </TouchableOpacity>
+          {items.length > 6 && (
+            <View style={[styles.chip, styles.chipMore]}>
+              <Text style={styles.chipText}>+{items.length - 6}</Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      <View style={styles.itemsRow}>
-        {items.slice(0, 8).map((item, index) => (
-          <View key={index} style={[styles.dot, { backgroundColor: SLICE_COLORS[index % SLICE_COLORS.length] ?? colors.grey500 }]}>
-            <Text style={styles.dotText}>{item.length > 4 ? item.slice(0, 4) + '…' : item}</Text>
-          </View>
-        ))}
-        {items.length > 8 && (
-          <View style={styles.moreChip}>
-            <Text style={styles.moreText}>+{items.length - 8}</Text>
-          </View>
-        )}
+      {/* BottomCTA */}
+      <View style={styles.bottomCTA}>
+        <TouchableOpacity
+          style={[styles.ctaButton, (isSpinning || phase === 'done') && styles.ctaButtonDisabled]}
+          onPress={handleSpin}
+          disabled={isSpinning || phase === 'done'}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.ctaText}>
+            {phase === 'idle' ? 'SPIN!' : phase === 'spinning' ? '두근두근...' : '완료! 🎉'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-interface WheelSliceProps {
-  index: number;
-  total: number;
+// ─── SlotItem ─────────────────────────────────────────────────────────────────
+
+interface SlotItemProps {
   label: string;
-  sliceDeg: number;
-  wheelSize: number;
-  bgColor: string;
 }
 
-function WheelSlice({ index, sliceDeg, wheelSize, label, bgColor }: WheelSliceProps) {
-  const radius = wheelSize / 2;
-  const rotationDeg = index * sliceDeg + sliceDeg / 2;
-
+function SlotItem({ label }: SlotItemProps) {
   return (
-    <View
-      style={[
-        styles.sliceContainer,
-        {
-          width: wheelSize,
-          height: wheelSize,
-          borderRadius: radius,
-          transform: [{ rotate: `${index * sliceDeg}deg` }],
-        },
-      ]}
-    >
-      <View
-        style={[
-          styles.slicePie,
-          {
-            borderWidth: radius,
-            borderTopColor: bgColor,
-            borderRightColor: 'transparent',
-            borderBottomColor: 'transparent',
-            borderLeftColor: sliceDeg > 180 ? bgColor : 'transparent',
-          },
-        ]}
-      />
-      <Text
-        style={[
-          styles.sliceLabel,
-          {
-            transform: [
-              { rotate: `${rotationDeg}deg` },
-              { translateX: radius * 0.55 },
-              { rotate: '-90deg' },
-            ],
-          },
-        ]}
-        numberOfLines={1}
-      >
-        {label.length > 6 ? label.slice(0, 6) + '…' : label}
+    <View style={styles.slotItem}>
+      <Text style={styles.slotItemText} numberOfLines={1}>
+        {label}
       </Text>
     </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.grey50 },
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  pointerWrapper: {
-    position: 'absolute',
-    top: '10%',
-    zIndex: 10,
-    alignItems: 'center',
-  },
-  pointer: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 12,
-    borderRightWidth: 12,
-    borderTopWidth: 24,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderTopColor: colors.red500,
-  },
-  wheel: {
+  body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+
+  slotWrapper: {
+    width: '100%',
+    position: 'relative',
+    borderRadius: 20,
     overflow: 'hidden',
-    elevation: 6,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.grey100,
+    elevation: 4,
     shadowColor: colors.grey900,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
   },
-  sliceContainer: {
+  selectorHighlight: {
     position: 'absolute',
-    top: 0,
     left: 0,
+    right: 0,
+    backgroundColor: colors.blue50,
+    borderTopWidth: 2,
+    borderBottomWidth: 2,
+    borderColor: colors.blue400,
+    zIndex: 2,
+  },
+  slotWindow: {
     overflow: 'hidden',
   },
-  slicePie: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 0,
-    height: 0,
-  },
-  sliceLabel: {
-    position: 'absolute',
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  centerButton: {
-    position: 'absolute',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.white,
+  slotItem: {
+    height: ITEM_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 8,
-    shadowColor: colors.grey900,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    borderWidth: 3,
-    borderColor: colors.grey100,
+    paddingHorizontal: 20,
   },
-  centerButtonSpinning: { backgroundColor: colors.grey50 },
-  centerButtonText: { fontSize: 15, fontWeight: '800', color: colors.blue500, letterSpacing: 0.5 },
-  itemsRow: {
+  slotItemText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.grey900,
+    textAlign: 'center',
+  },
+  fadeEdge: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: ITEM_HEIGHT * 1.5,
+    zIndex: 3,
+    pointerEvents: 'none',
+  } as const,
+  fadeTop: { top: 0, backgroundColor: 'rgba(255,255,255,0.6)' },
+  fadeBottom: { bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)' },
+
+  chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    padding: 16,
     gap: 6,
+    marginTop: 20,
+  },
+  chip: {
+    backgroundColor: colors.blue50,
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+  },
+  chipMore: { backgroundColor: colors.grey100 },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.blue600 },
+
+  bottomCTA: {
+    padding: 16,
+    paddingBottom: 32,
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.grey100,
-    paddingBottom: 32,
   },
-  dot: { borderRadius: 16, paddingVertical: 5, paddingHorizontal: 10 },
-  dotText: { fontSize: 12, fontWeight: '600', color: colors.white },
-  moreChip: { borderRadius: 16, paddingVertical: 5, paddingHorizontal: 10, backgroundColor: colors.grey200 },
-  moreText: { fontSize: 12, fontWeight: '600', color: colors.grey600 },
+  ctaButton: {
+    height: 56,
+    backgroundColor: colors.blue500,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaButtonDisabled: { backgroundColor: colors.grey300 },
+  ctaText: { fontSize: 20, fontWeight: '800', color: colors.white, letterSpacing: 1 },
 });

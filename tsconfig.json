@@ -5,7 +5,7 @@
     "target": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ESNext"],
-    "types": ["react-native"],
+    "types": ["node"],
     "typeRoots": ["./types", "./node_modules/@types"],
     "jsx": "react-native",
     "resolveJsonModule": true,
