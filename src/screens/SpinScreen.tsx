@@ -214,8 +214,8 @@ const styles = StyleSheet.create({
     zIndex: 3,
     pointerEvents: 'none',
   } as const,
-  fadeTop: { top: 0, backgroundColor: 'rgba(255,255,255,0.6)' },
-  fadeBottom: { bottom: 0, backgroundColor: 'rgba(255,255,255,0.6)' },
+  fadeTop: { top: 0, backgroundColor: colors.white },
+  fadeBottom: { bottom: 0, backgroundColor: colors.white },
 
   chipsRow: {
     flexDirection: 'row',
