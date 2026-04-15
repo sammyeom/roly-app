@@ -32,7 +32,7 @@ interface SpinScreenProps {
 export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScreenProps) {
   const { items } = params;
 
-  // 실제 렌더된 아이템 높이 실측 (StyleSheet의 height 제거했으므로 콘텐츠 기반)
+  // 실제 렌더된 아이템 높이 실측 (정수로 라운딩해서 누적 오차 방지)
   const [itemHeight, setItemHeight] = useState<number | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'spinning' | 'done'>('idle');
@@ -51,7 +51,9 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
   }, [items, translateY]);
 
   const handleFirstItemLayout = useCallback((e: LayoutChangeEvent) => {
-    const measured = e.nativeEvent.layout.height;
+    // 소수점 픽셀을 정수로 라운딩 (targetIdx × height 누적 오차 방지)
+    const measured = Math.round(e.nativeEvent.layout.height);
+    if (__DEV__) console.log('[SpinScreen] measured itemHeight:', measured);
     if (measured > 0) {
       setItemHeight((prev) => (prev === measured ? prev : measured));
     }
@@ -76,35 +78,38 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
     const targetRepeat = Math.floor(REPEAT_COUNT * 0.65);
     const targetIdx = targetRepeat * items.length + winnerIdx;
 
-    // 가운데(center)에 타깃이 오도록 오프셋 계산 (측정된 실제 높이 사용)
+    // 가운데(center)에 타깃이 오도록 오프셋 계산 (측정된 정수 높이 사용)
     const centerOffset = Math.floor(VISIBLE_COUNT / 2);
     const targetY = -((targetIdx - centerOffset) * h);
 
     translateY.stopAnimation();
     translateY.setValue(0);
 
-    Animated.timing(translateY, {
-      toValue: targetY,
-      duration: 2000,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) return;
+    // setValue(0)가 네이티브 스레드에 반영된 후 애니메이션 시작 (한 프레임 대기)
+    requestAnimationFrame(() => {
+      Animated.timing(translateY, {
+        toValue: targetY,
+        duration: 3000 + Math.random() * 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished) return;
 
-      void (async () => {
-        try {
-          await generateHapticFeedback({ type: 'success' });
-        } catch {
-          // 햅틱 실패는 조용히 처리
-        }
-      })();
+        void (async () => {
+          try {
+            await generateHapticFeedback({ type: 'success' });
+          } catch {
+            // 햅틱 실패는 조용히 처리
+          }
+        })();
 
-      setIsSpinning(false);
-      setPhase('done');
+        setIsSpinning(false);
+        setPhase('done');
 
-      setTimeout(() => {
-        onNavigateResult({ result: winner, spinParams: params });
-      }, 500);
+        setTimeout(() => {
+          onNavigateResult({ result: winner, spinParams: params });
+        }, 500);
+      });
     });
   }, [isSpinning, itemHeight, items, translateY, params, onNavigateResult]);
 
@@ -131,7 +136,6 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
             <Animated.View
               style={{
                 transform: [{ translateY }],
-                // 측정 전엔 숨김 (한 번 렌더 후 onLayout 발화 → isReady=true 후 표시)
                 opacity: isReady ? 1 : 0,
               }}
             >
@@ -139,6 +143,7 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
                 <SlotItem
                   key={index}
                   label={item}
+                  itemHeight={itemHeight}
                   onLayout={index === 0 ? handleFirstItemLayout : undefined}
                 />
               ))}
@@ -188,12 +193,17 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
 
 interface SlotItemProps {
   label: string;
+  itemHeight: number | null;
   onLayout?: (e: LayoutChangeEvent) => void;
 }
 
-function SlotItem({ label, onLayout }: SlotItemProps) {
+function SlotItem({ label, itemHeight, onLayout }: SlotItemProps) {
+  // 측정 후엔 모든 아이템에 명시적 height 주입 → 실제 렌더 높이 == 계산 높이 보장
   return (
-    <View style={styles.slotItem} onLayout={onLayout}>
+    <View
+      style={[styles.slotItem, itemHeight != null ? { height: itemHeight } : null]}
+      onLayout={onLayout}
+    >
       <Text style={styles.slotItemText} numberOfLines={1}>
         {label}
       </Text>
@@ -234,7 +244,7 @@ const styles = StyleSheet.create({
   slotWindow: {
     overflow: 'hidden',
   },
-  // height 제거 — 콘텐츠(텍스트 + paddingVertical) 기반으로 실측됨
+  // height는 측정 후 SlotItem에 직접 주입 (StyleSheet엔 고정값 없음)
   slotItem: {
     alignItems: 'center',
     justifyContent: 'center',
