@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,6 @@ import {
   StyleSheet,
   Animated,
   Easing,
-  PixelRatio,
-  type LayoutChangeEvent,
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
 import { generateHapticFeedback } from '@apps-in-toss/framework';
@@ -16,9 +14,10 @@ import { type SpinParams, type ResultParams } from '../App';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const ITEM_HEIGHT_FALLBACK = 72;  // 측정 전 컨테이너 임시 크기 (렌더 폴백용)
-const VISIBLE_COUNT = 5;          // 홀수여야 가운데 항목이 정렬됨
-const REPEAT_COUNT = 20;          // 슬롯 항목 반복 횟수
+const ITEM_HEIGHT = 72;           // 고정 높이 (오차 방지를 위해 명시적 선언)
+const VISIBLE_COUNT = 5;          // 홀수여야 가운데 항목이 명확함
+const REPEAT_COUNT = 30;          // 충분한 회전을 위해 횟수 증가
+const CENTER_INDEX = 2;           // 0, 1, [2], 3, 4 (5개 중 가운데)
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -33,156 +32,116 @@ interface SpinScreenProps {
 export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScreenProps) {
   const { items } = params;
 
-  // 실제 렌더된 아이템 높이 실측 (정수로 라운딩해서 누적 오차 방지)
-  const [itemHeight, setItemHeight] = useState<number | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'spinning' | 'done'>('idle');
 
   const translateY = useRef(new Animated.Value(0)).current;
 
-  // 슬롯 아이템 (items를 REPEAT_COUNT번 반복)
+  // 슬롯 아이템 생성
   const spinItems = useMemo<string[]>(() => {
     return Array.from({ length: REPEAT_COUNT }, () => items).flat();
   }, [items]);
 
-  // items 변경 시 측정값 리셋
-  useEffect(() => {
-    setItemHeight(null);
-    translateY.setValue(0);
-  }, [items, translateY]);
-
-  const handleFirstItemLayout = useCallback((e: LayoutChangeEvent) => {
-    // RN 렌더 픽셀 그리드에 맞춰 라운딩 (Math.round보다 정확)
-    const measured = PixelRatio.roundToNearestPixel(e.nativeEvent.layout.height);
-    if (__DEV__) console.log('[SpinScreen] measured itemHeight:', measured);
-    if (measured > 0) {
-      setItemHeight((prev) => (prev === measured ? prev : measured));
-    }
-  }, []);
-
-  const isReady = itemHeight != null && itemHeight > 0;
-
   const handleSpin = useCallback((): void => {
     if (isSpinning) return;
-    if (itemHeight == null || itemHeight <= 0) return;
-
-    const h = itemHeight;
 
     setIsSpinning(true);
     setPhase('spinning');
 
-    // 당첨 인덱스 (items 기준)
+    // 1. 당첨 인덱스 결정 (진짜 결과값)
     const winnerIdx = Math.floor(Math.random() * items.length);
     const winner = items[winnerIdx] ?? items[0] ?? '';
 
-    // spinItems 기준 타깃 인덱스: 중반부 이후 반복에 위치시킴
-    const targetRepeat = Math.floor(REPEAT_COUNT * 0.65);
-    const targetIdx = targetRepeat * items.length + winnerIdx;
+    // 2. 타겟 위치 계산
+    // 뒤쪽 섹션(REPEAT_COUNT - 5 사이)에서 멈추도록 설정하여 충분히 돌게 함
+    const targetSetIndex = REPEAT_COUNT - 5;
+    const targetAbsoluteIdx = targetSetIndex * items.length + winnerIdx;
 
-    // 가운데(center)에 타깃이 오도록 오프셋 계산 (측정된 정수 높이 사용)
-    const centerOffset = Math.floor(VISIBLE_COUNT / 2);
-    const targetY = -((targetIdx - centerOffset) * h);
+    // 핵심 공식: (타겟 인덱스 - 중앙 오프셋) * 높이
+    // 위로 올라가야 하므로 마이너스(-) 값을 가집니다.
+    const targetY = -(targetAbsoluteIdx - CENTER_INDEX) * ITEM_HEIGHT;
 
     translateY.stopAnimation();
     translateY.setValue(0);
 
-    // setValue(0)가 네이티브 스레드에 반영된 후 애니메이션 시작 (한 프레임 대기)
-    requestAnimationFrame(() => {
-      Animated.timing(translateY, {
-        toValue: targetY,
-        duration: 3000 + Math.random() * 500,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (!finished) return;
+    Animated.timing(translateY, {
+      toValue: targetY,
+      duration: 3500,
+      easing: Easing.out(Easing.bezier(0.22, 1, 0.36, 1)), // 부드러운 감속 곡선
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) return;
 
-        void (async () => {
-          try {
-            await generateHapticFeedback({ type: 'success' });
-          } catch {
-            // 햅틱 실패는 조용히 처리
-          }
-        })();
+      void generateHapticFeedback({ type: 'success' }).catch(() => {});
 
-        setIsSpinning(false);
-        setPhase('done');
+      setIsSpinning(false);
+      setPhase('done');
 
-        setTimeout(() => {
-          onNavigateResult({ result: winner, spinParams: params });
-        }, 500);
-      });
+      // 정확히 중앙에 멈춘 것을 확인 시키기 위해 약간의 지연 후 이동
+      setTimeout(() => {
+        onNavigateResult({ result: winner, spinParams: params });
+      }, 700);
     });
-  }, [isSpinning, itemHeight, items, translateY, params, onNavigateResult]);
+  }, [isSpinning, items, translateY, params, onNavigateResult]);
 
-  const h = itemHeight ?? ITEM_HEIGHT_FALLBACK;
-  const containerHeight = h * VISIBLE_COUNT;
-  const centerTop = Math.floor(VISIBLE_COUNT / 2) * h;
-  const fadeHeight = h * 1.5;
-
-  const ctaDisabled = isSpinning || phase === 'done' || !isReady;
+  const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
+  const highlightTop = CENTER_INDEX * ITEM_HEIGHT;
 
   return (
     <View style={styles.container}>
       <NavigationBar title="Roly 🎲" onBack={onBack} />
 
       <View style={styles.body}>
-        {/* 슬롯 윈도우 */}
         <View style={[styles.slotWrapper, { height: containerHeight }]}>
-          {/* 선택 하이라이트 (측정 완료 후에만 표시) */}
-          {isReady && (
-            <View style={[styles.selectorHighlight, { top: centerTop, height: h }]} pointerEvents="none" />
-          )}
+          {/* 하이라이트 바: 정확히 중앙 칸에 고정 */}
+          <View
+            style={[styles.selectorHighlight, { top: highlightTop, height: ITEM_HEIGHT }]}
+            pointerEvents="none"
+          />
 
           <View style={[styles.slotWindow, { height: containerHeight }]}>
-            <Animated.View
-              style={{
-                transform: [{ translateY }],
-                opacity: isReady ? 1 : 0,
-              }}
-            >
+            <Animated.View style={{ transform: [{ translateY }] }}>
               {spinItems.map((item, index) => (
-                <SlotItem
-                  key={index}
-                  label={item}
-                  itemHeight={itemHeight}
-                  onLayout={index === 0 ? handleFirstItemLayout : undefined}
-                />
+                <View key={index} style={styles.slotItem}>
+                  <Text style={styles.slotItemText} allowFontScaling={false} numberOfLines={1}>
+                    {item}
+                  </Text>
+                </View>
               ))}
             </Animated.View>
           </View>
 
-          {/* 상단/하단 페이드 */}
-          <View style={[styles.fadeEdge, styles.fadeTop, { height: fadeHeight }]} pointerEvents="none" />
-          <View style={[styles.fadeEdge, styles.fadeBottom, { height: fadeHeight }]} pointerEvents="none" />
+          {/* 그라데이션 페이드 효과 */}
+          <View style={[styles.fadeEdge, styles.fadeTop]} pointerEvents="none" />
+          <View style={[styles.fadeEdge, styles.fadeBottom]} pointerEvents="none" />
         </View>
 
-        {/* 항목 목록 */}
+        {/* 하단 칩 리스트 */}
         <View style={styles.chipsRow}>
           {items.slice(0, 6).map((item, index) => (
             <View key={index} style={styles.chip}>
-              <Text style={styles.chipText} numberOfLines={1}>
+              <Text style={styles.chipText} numberOfLines={1} allowFontScaling={false}>
                 {item.length > 5 ? `${item.slice(0, 5)}…` : item}
               </Text>
             </View>
           ))}
           {items.length > 6 && (
             <View style={[styles.chip, styles.chipMore]}>
-              <Text style={styles.chipText}>+{items.length - 6}</Text>
+              <Text style={styles.chipText} allowFontScaling={false}>+{items.length - 6}</Text>
             </View>
           )}
         </View>
       </View>
 
-      {/* BottomCTA */}
       <View style={styles.bottomCTA}>
         <TouchableOpacity
-          style={[styles.ctaButton, ctaDisabled && styles.ctaButtonDisabled]}
+          style={[styles.ctaButton, (isSpinning || phase === 'done') && styles.ctaButtonDisabled]}
           onPress={handleSpin}
-          disabled={ctaDisabled}
+          disabled={isSpinning || phase === 'done'}
           activeOpacity={0.85}
         >
-          <Text style={styles.ctaText}>
-            {!isReady ? '준비 중...' : phase === 'idle' ? 'SPIN!' : phase === 'spinning' ? '두근두근...' : '완료! 🎉'}
+          <Text style={styles.ctaText} allowFontScaling={false}>
+            {phase === 'idle' ? 'SPIN!' : phase === 'spinning' ? '회전 중...' : '결과 확인'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -190,48 +149,18 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
   );
 }
 
-// ─── SlotItem ─────────────────────────────────────────────────────────────────
-
-interface SlotItemProps {
-  label: string;
-  itemHeight: number | null;
-  onLayout?: (e: LayoutChangeEvent) => void;
-}
-
-function SlotItem({ label, itemHeight, onLayout }: SlotItemProps) {
-  // 측정 후엔 모든 아이템에 명시적 height 주입 → 실제 렌더 높이 == 계산 높이 보장
-  return (
-    <View
-      style={[styles.slotItem, itemHeight != null ? { height: itemHeight } : null]}
-      onLayout={onLayout}
-    >
-      <Text style={styles.slotItemText} numberOfLines={1} allowFontScaling={false}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-// ─── Styles ──────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.grey50 },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-
   slotWrapper: {
     width: '100%',
-    position: 'relative',
-    borderRadius: 20,
-    overflow: 'hidden',
     backgroundColor: colors.white,
+    borderRadius: 24,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.grey100,
-    elevation: 4,
-    shadowColor: colors.grey900,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
   },
+  slotWindow: { overflow: 'hidden' },
   selectorHighlight: {
     position: 'absolute',
     left: 0,
@@ -240,51 +169,43 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderBottomWidth: 2,
     borderColor: colors.blue400,
-    zIndex: 2,
+    zIndex: 10,
   },
-  slotWindow: {
-    overflow: 'hidden',
-  },
-  // height는 측정 후 SlotItem에 직접 주입 (StyleSheet엔 고정값 없음)
   slotItem: {
+    height: ITEM_HEIGHT, // 고정 높이 강제
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 22,
     paddingHorizontal: 20,
   },
   slotItemText: {
-    fontSize: 22,
-    lineHeight: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: 'bold',
     color: colors.grey900,
-    textAlign: 'center',
   },
   fadeEdge: {
     position: 'absolute',
     left: 0,
     right: 0,
-    zIndex: 3,
-    pointerEvents: 'none',
-  } as const,
-  fadeTop: { top: 0, backgroundColor: colors.white },
-  fadeBottom: { bottom: 0, backgroundColor: colors.white },
-
+    height: ITEM_HEIGHT * 1.5,
+    zIndex: 5,
+  },
+  fadeTop: { top: 0, backgroundColor: 'rgba(255,255,255,0.8)' },
+  fadeBottom: { bottom: 0, backgroundColor: 'rgba(255,255,255,0.8)' },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 20,
+    marginTop: 24,
   },
   chip: {
     backgroundColor: colors.blue50,
-    borderRadius: 20,
-    paddingVertical: 5,
+    borderRadius: 16,
+    paddingVertical: 6,
     paddingHorizontal: 12,
   },
   chipMore: { backgroundColor: colors.grey100 },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.blue600 },
-
+  chipText: { fontSize: 13, color: colors.blue600, fontWeight: '600' },
   bottomCTA: {
     padding: 16,
     paddingBottom: 32,
@@ -300,5 +221,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   ctaButtonDisabled: { backgroundColor: colors.grey300 },
-  ctaText: { fontSize: 20, fontWeight: '800', color: colors.white, letterSpacing: 1 },
+  ctaText: { fontSize: 18, fontWeight: 'bold', color: colors.white },
 });
