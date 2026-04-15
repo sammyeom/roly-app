@@ -12,15 +12,12 @@ import { colors } from '@toss/tds-react-native';
 import {
   generateHapticFeedback,
   getTossShareLink,
-  contactsViral,
+  share,
 } from '@apps-in-toss/framework';
 import NavigationBar from '../components/NavigationBar';
 import { type ResultParams } from '../App';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
-
-// 토스 콘솔에서 발급받은 친구초대 모듈 ID로 교체하세요
-const VIRAL_MODULE_ID = 'YOUR_VIRAL_MODULE_ID';
 
 interface ResultScreenProps {
   params: ResultParams;
@@ -104,21 +101,12 @@ export default function ResultScreen({ params, onRetry, onHome, onBack }: Result
     setIsSharing(true);
 
     try {
-      // Toss 공유 링크 생성
-      await getTossShareLink(`/roly-app/result?item=${encodeURIComponent(result)}`);
-
-      // 친구 초대 공유
-      contactsViral({
-        options: { moduleId: VIRAL_MODULE_ID },
-        onEvent: (_event) => {
-          // 공유 이벤트 처리 (필요 시 리워드 지급 로직 추가)
-        },
-        onError: (_err) => {
-          Alert.alert('알림', '공유하는 중 오류가 발생했어요.');
-        },
-      });
+      const shareLink = await getTossShareLink(
+        `intoss://roly-spinner?result=${encodeURIComponent(result)}`,
+      );
+      await share({ message: shareLink });
     } catch {
-      Alert.alert('알림', '공유 링크를 생성하는 중 오류가 발생했어요.');
+      Alert.alert('알림', '공유하는 중 오류가 발생했어요.');
     } finally {
       setIsSharing(false);
     }
