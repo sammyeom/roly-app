@@ -11,7 +11,6 @@ import {
 import { colors } from '@toss/tds-react-native';
 import NavigationBar from '../components/NavigationBar';
 import { PRESETS } from '../data/presets';
-import { pickMultiple } from '../utils/random';
 import { type SpinParams } from '../App';
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -97,8 +96,7 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
       }
 
       const rangeItems = Array.from({ length: max - min + 1 }, (_, i) => String(min + i));
-      const selectedItems = pickMultiple(rangeItems, count);
-      onNavigateSpin({ mode: 'number', items: selectedItems, label: '번호 추첨' });
+      onNavigateSpin({ mode: 'number', items: rangeItems, label: '번호 추첨', count });
     } catch {
       Alert.alert('오류', '추첨할 수 없어요. 다시 시도해주세요.');
     }

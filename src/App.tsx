@@ -9,8 +9,9 @@ export type SpinMode = 'roulette' | 'number';
 
 export interface SpinParams {
   mode: SpinMode;
-  items: string[];       // 뽑기 항목 (number 모드면 ['1', '2', ..., 'N'])
+  items: string[];       // 뽑기 항목 (number 모드면 전체 범위 ['1', ..., 'N'])
   label: string;         // 화면 제목
+  count?: number;        // number 모드에서 뽑을 개수 (기본 1)
 }
 
 export interface ResultParams {

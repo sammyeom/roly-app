@@ -10,6 +10,7 @@ import {
 import { colors } from '@toss/tds-react-native';
 import { generateHapticFeedback } from '@apps-in-toss/framework';
 import NavigationBar from '../components/NavigationBar';
+import { pickMultiple } from '../utils/random';
 import { type SpinParams, type ResultParams } from '../App';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -30,7 +31,8 @@ interface SpinScreenProps {
 // ─── SpinScreen ──────────────────────────────────────────────────────────────
 
 export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScreenProps) {
-  const { items } = params;
+  const { items, mode, count } = params;
+  const drawCount = mode === 'number' ? Math.max(1, count ?? 1) : 1;
 
   const [isSpinning, setIsSpinning] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'spinning' | 'done'>('idle');
@@ -48,9 +50,21 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
     setIsSpinning(true);
     setPhase('spinning');
 
-    // 1. 당첨 인덱스 결정 (진짜 결과값)
-    const winnerIdx = Math.floor(Math.random() * items.length);
-    const winner = items[winnerIdx] ?? items[0] ?? '';
+    // 1. 당첨 값 결정
+    // number 모드에서 count > 1: 먼저 count개 뽑고, 슬롯은 첫 번째 값에 멈춤
+    // 최종 result는 뽑은 숫자들을 오름차순으로 조인
+    let winnerIdx: number;
+    let finalResult: string;
+    if (mode === 'number' && drawCount > 1) {
+      const drawn = pickMultiple(items, drawCount);
+      const sorted = [...drawn].sort((a, b) => Number(a) - Number(b));
+      finalResult = sorted.join(', ');
+      winnerIdx = items.indexOf(drawn[0] ?? items[0] ?? '');
+      if (winnerIdx < 0) winnerIdx = 0;
+    } else {
+      winnerIdx = Math.floor(Math.random() * items.length);
+      finalResult = items[winnerIdx] ?? items[0] ?? '';
+    }
 
     // 2. 타겟 위치 계산
     // 뒤쪽 섹션(REPEAT_COUNT - 5 사이)에서 멈추도록 설정하여 충분히 돌게 함
@@ -79,10 +93,10 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
 
       // 정확히 중앙에 멈춘 것을 확인 시키기 위해 약간의 지연 후 이동
       setTimeout(() => {
-        onNavigateResult({ result: winner, spinParams: params });
+        onNavigateResult({ result: finalResult, spinParams: params });
       }, 700);
     });
-  }, [isSpinning, items, translateY, params, onNavigateResult]);
+  }, [isSpinning, items, mode, drawCount, translateY, params, onNavigateResult]);
 
   const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
   const highlightTop = CENTER_INDEX * ITEM_HEIGHT;
