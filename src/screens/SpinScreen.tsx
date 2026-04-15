@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  PixelRatio,
   type LayoutChangeEvent,
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
@@ -51,8 +52,8 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
   }, [items, translateY]);
 
   const handleFirstItemLayout = useCallback((e: LayoutChangeEvent) => {
-    // 소수점 픽셀을 정수로 라운딩 (targetIdx × height 누적 오차 방지)
-    const measured = Math.round(e.nativeEvent.layout.height);
+    // RN 렌더 픽셀 그리드에 맞춰 라운딩 (Math.round보다 정확)
+    const measured = PixelRatio.roundToNearestPixel(e.nativeEvent.layout.height);
     if (__DEV__) console.log('[SpinScreen] measured itemHeight:', measured);
     if (measured > 0) {
       setItemHeight((prev) => (prev === measured ? prev : measured));
@@ -204,7 +205,7 @@ function SlotItem({ label, itemHeight, onLayout }: SlotItemProps) {
       style={[styles.slotItem, itemHeight != null ? { height: itemHeight } : null]}
       onLayout={onLayout}
     >
-      <Text style={styles.slotItemText} numberOfLines={1}>
+      <Text style={styles.slotItemText} numberOfLines={1} allowFontScaling={false}>
         {label}
       </Text>
     </View>
