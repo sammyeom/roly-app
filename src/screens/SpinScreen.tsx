@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
 import { generateHapticFeedback } from '@apps-in-toss/framework';
@@ -12,10 +13,9 @@ import { type SpinParams, type ResultParams } from '../App';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const ITEM_HEIGHT = 72;
+const ITEM_HEIGHT_FALLBACK = 72;
 const VISIBLE_COUNT = 5;       // 홀수여야 가운데 항목이 정렬됨
 const REPEAT_COUNT = 20;       // 슬롯 항목 반복 횟수
-const SPIN_SPINS = 7;          // 최소 회전 수
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -28,8 +28,10 @@ interface SpinScreenProps {
 // ─── SpinScreen ──────────────────────────────────────────────────────────────
 
 export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScreenProps) {
-  const { items, label } = params;
+  const { items } = params;
 
+  // 실제 렌더된 아이템 높이를 측정해서 사용 (하드코딩된 72는 기기별로 오차 발생)
+  const [itemHeight, setItemHeight] = useState<number | null>(null);
   const [offsetY, setOffsetY] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'spinning' | 'done'>('idle');
@@ -47,8 +49,21 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
     return Array.from({ length: REPEAT_COUNT }, () => items).flat();
   }, [items]);
 
+  const handleFirstItemLayout = useCallback((e: LayoutChangeEvent) => {
+    const measured = e.nativeEvent.layout.height;
+    if (measured > 0) {
+      setItemHeight((prev) => (prev === measured ? prev : measured));
+    }
+  }, []);
+
+  const isReady = itemHeight != null && itemHeight > 0;
+
   const handleSpin = useCallback((): void => {
     if (isSpinning) return;
+    if (itemHeight == null || itemHeight <= 0) return;
+
+    const h = itemHeight;
+
     setIsSpinning(true);
     setPhase('spinning');
 
@@ -60,17 +75,18 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
     const targetRepeat = Math.floor(REPEAT_COUNT * 0.65);
     const targetIdx = targetRepeat * items.length + winnerIdx;
 
-    // 가운데(center)에 타깃이 오도록 오프셋 계산
+    // 가운데(center)에 타깃이 오도록 오프셋 계산 (측정된 실제 높이 사용)
     const centerOffset = Math.floor(VISIBLE_COUNT / 2);
-    const targetY = -((targetIdx - centerOffset) * ITEM_HEIGHT);
+    const targetY = -((targetIdx - centerOffset) * h);
 
     const duration = 2000;
-    const startTime = Date.now();
+    let startTs: number | null = null;
     const startY = 0;
     setOffsetY(0);
 
-    const tick = () => {
-      const elapsed = Date.now() - startTime;
+    const tick = (ts: number) => {
+      if (startTs == null) startTs = ts;
+      const elapsed = ts - startTs;
       const t = Math.min(1, elapsed / duration);
       const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
       const current = startY + (targetY - startY) * eased;
@@ -101,10 +117,14 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
     };
 
     rafRef.current = requestAnimationFrame(tick);
-  }, [isSpinning, items, params, onNavigateResult]);
+  }, [isSpinning, itemHeight, items, params, onNavigateResult]);
 
-  const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
-  const centerTop = Math.floor(VISIBLE_COUNT / 2) * ITEM_HEIGHT;
+  const h = itemHeight ?? ITEM_HEIGHT_FALLBACK;
+  const containerHeight = h * VISIBLE_COUNT;
+  const centerTop = Math.floor(VISIBLE_COUNT / 2) * h;
+  const fadeHeight = h * 1.5;
+
+  const ctaDisabled = isSpinning || phase === 'done' || !isReady;
 
   return (
     <View style={styles.container}>
@@ -114,19 +134,23 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
         {/* 슬롯 윈도우 */}
         <View style={[styles.slotWrapper, { height: containerHeight }]}>
           {/* 선택 하이라이트 */}
-          <View style={[styles.selectorHighlight, { top: centerTop, height: ITEM_HEIGHT }]} pointerEvents="none" />
+          <View style={[styles.selectorHighlight, { top: centerTop, height: h }]} pointerEvents="none" />
 
           <View style={[styles.slotWindow, { height: containerHeight }]}>
             <View style={{ transform: [{ translateY: offsetY }] }}>
               {spinItems.map((item, index) => (
-                <SlotItem key={index} label={item} />
+                <SlotItem
+                  key={index}
+                  label={item}
+                  onLayout={index === 0 ? handleFirstItemLayout : undefined}
+                />
               ))}
             </View>
           </View>
 
-          {/* 상단/하단 그라데이션 페이드 */}
-          <View style={[styles.fadeEdge, styles.fadeTop]} pointerEvents="none" />
-          <View style={[styles.fadeEdge, styles.fadeBottom]} pointerEvents="none" />
+          {/* 상단/하단 페이드 */}
+          <View style={[styles.fadeEdge, styles.fadeTop, { height: fadeHeight }]} pointerEvents="none" />
+          <View style={[styles.fadeEdge, styles.fadeBottom, { height: fadeHeight }]} pointerEvents="none" />
         </View>
 
         {/* 항목 목록 */}
@@ -149,13 +173,13 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
       {/* BottomCTA */}
       <View style={styles.bottomCTA}>
         <TouchableOpacity
-          style={[styles.ctaButton, (isSpinning || phase === 'done') && styles.ctaButtonDisabled]}
+          style={[styles.ctaButton, ctaDisabled && styles.ctaButtonDisabled]}
           onPress={handleSpin}
-          disabled={isSpinning || phase === 'done'}
+          disabled={ctaDisabled}
           activeOpacity={0.85}
         >
           <Text style={styles.ctaText}>
-            {phase === 'idle' ? 'SPIN!' : phase === 'spinning' ? '두근두근...' : '완료! 🎉'}
+            {!isReady ? '준비 중...' : phase === 'idle' ? 'SPIN!' : phase === 'spinning' ? '두근두근...' : '완료! 🎉'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -167,11 +191,12 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
 
 interface SlotItemProps {
   label: string;
+  onLayout?: (e: LayoutChangeEvent) => void;
 }
 
-function SlotItem({ label }: SlotItemProps) {
+function SlotItem({ label, onLayout }: SlotItemProps) {
   return (
-    <View style={styles.slotItem}>
+    <View style={styles.slotItem} onLayout={onLayout}>
       <Text style={styles.slotItemText} numberOfLines={1}>
         {label}
       </Text>
@@ -213,7 +238,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   slotItem: {
-    height: ITEM_HEIGHT,
+    height: ITEM_HEIGHT_FALLBACK,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -228,7 +253,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    height: ITEM_HEIGHT * 1.5,
     zIndex: 3,
     pointerEvents: 'none',
   } as const,
