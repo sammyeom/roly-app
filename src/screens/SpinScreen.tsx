@@ -1,11 +1,9 @@
-import React, { useRef, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  Animated,
-  Easing,
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
 import { generateHapticFeedback } from '@apps-in-toss/framework';
@@ -32,18 +30,24 @@ interface SpinScreenProps {
 export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScreenProps) {
   const { items, label } = params;
 
-  const translateY = useRef(new Animated.Value(0)).current;
-  const currentOffset = useRef(0);
-
+  const [offsetY, setOffsetY] = useState(0);
   const [isSpinning, setIsSpinning] = useState(false);
   const [phase, setPhase] = useState<'idle' | 'spinning' | 'done'>('idle');
+
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   // 슬롯 아이템 (items를 REPEAT_COUNT번 반복)
   const spinItems = useMemo<string[]>(() => {
     return Array.from({ length: REPEAT_COUNT }, () => items).flat();
   }, [items]);
 
-  const handleSpin = useCallback(async (): Promise<void> => {
+  const handleSpin = useCallback((): void => {
     if (isSpinning) return;
     setIsSpinning(true);
     setPhase('spinning');
@@ -60,34 +64,44 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
     const centerOffset = Math.floor(VISIBLE_COUNT / 2);
     const targetY = -((targetIdx - centerOffset) * ITEM_HEIGHT);
 
-    // 이전 위치 초기화 후 애니메이션
-    translateY.stopAnimation();
-    translateY.setValue(0);
-    currentOffset.current = targetY;
+    const duration = 2000;
+    const startTime = Date.now();
+    const startY = 0;
+    setOffsetY(0);
 
-    Animated.timing(translateY, {
-      toValue: targetY,
-      duration: 2000,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start(async ({ finished }) => {
-      // 애니메이션 종료 후 정확한 위치로 스냅
-      translateY.setValue(targetY);
+    const tick = () => {
+      const elapsed = Date.now() - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const current = startY + (targetY - startY) * eased;
+      setOffsetY(current);
 
-      try {
-        await generateHapticFeedback({ type: 'success' });
-      } catch {
-        // 햅틱 실패는 조용히 처리
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        // 최종 정확한 위치로 스냅
+        setOffsetY(targetY);
+        rafRef.current = null;
+
+        void (async () => {
+          try {
+            await generateHapticFeedback({ type: 'success' });
+          } catch {
+            // 햅틱 실패는 조용히 처리
+          }
+        })();
+
+        setIsSpinning(false);
+        setPhase('done');
+
+        setTimeout(() => {
+          onNavigateResult({ result: winner, spinParams: params });
+        }, 500);
       }
+    };
 
-      setIsSpinning(false);
-      setPhase('done');
-
-      setTimeout(() => {
-        onNavigateResult({ result: winner, spinParams: params });
-      }, 500);
-    });
-  }, [isSpinning, items, translateY, params, onNavigateResult]);
+    rafRef.current = requestAnimationFrame(tick);
+  }, [isSpinning, items, params, onNavigateResult]);
 
   const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
   const centerTop = Math.floor(VISIBLE_COUNT / 2) * ITEM_HEIGHT;
@@ -103,11 +117,11 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
           <View style={[styles.selectorHighlight, { top: centerTop, height: ITEM_HEIGHT }]} pointerEvents="none" />
 
           <View style={[styles.slotWindow, { height: containerHeight }]}>
-            <Animated.View style={{ transform: [{ translateY }] }}>
+            <View style={{ transform: [{ translateY: offsetY }] }}>
               {spinItems.map((item, index) => (
                 <SlotItem key={index} label={item} />
               ))}
-            </Animated.View>
+            </View>
           </View>
 
           {/* 상단/하단 그라데이션 페이드 */}
