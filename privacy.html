@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roly - 개인정보처리방침 및 이용약관</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #FAFAF8;
+    color: #1A1A1A;
+    font-size: 15px;
+    line-height: 1.7;
+    padding: 0 0 60px;
+  }
+  .header {
+    background: #FF6B35;
+    color: white;
+    padding: 40px 24px 32px;
+    text-align: center;
+  }
+  .header .emoji { font-size: 36px; margin-bottom: 8px; }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .tabs {
+    display: flex;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab {
+    flex: 1;
+    padding: 14px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #999;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .tab.active { color: #FF6B35; border-bottom-color: #FF6B35; }
+  .section { display: none; padding: 24px; max-width: 680px; margin: 0 auto; }
+  .section.active { display: block; }
+  .updated {
+    font-size: 12px;
+    color: #999;
+    background: #f5f5f5;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    display: inline-block;
+  }
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1A1A1A;
+    margin: 28px 0 10px;
+    padding-left: 10px;
+    border-left: 3px solid #FF6B35;
+  }
+  h2:first-of-type { margin-top: 0; }
+  p { color: #444; margin-bottom: 10px; font-size: 14px; }
+  ul {
+    padding-left: 18px;
+    margin-bottom: 10px;
+    color: #444;
+    font-size: 14px;
+  }
+  ul li { margin-bottom: 5px; }
+  .highlight {
+    background: #FFF0EB;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #CC4A1A;
+    font-weight: 500;
+  }
+  .contact {
+    background: #f5f5f5;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 12px;
+    font-size: 13px;
+    color: #555;
+  }
+  .contact strong { color: #1A1A1A; display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="emoji">🎡</div>
+  <h1>Roly (롤리)</h1>
+  <p>법적 고지 및 정책 안내</p>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('privacy')">개인정보처리방침</button>
+  <button class="tab" onclick="showTab('terms')">서비스 이용약관</button>
+</div>
+
+<!-- 개인정보처리방침 -->
+<div class="section active" id="privacy">
+  <span class="updated">최종 업데이트: 2026년 4월</span>
+
+  <div class="highlight">
+    Roly는 별도의 서버를 운영하지 않으며, 개인정보를 수집·저장하지 않습니다.
+  </div>
+
+  <h2>1. 수집하는 정보</h2>
+  <p>Roly는 다음 정보를 일시적으로 사용합니다:</p>
+  <ul>
+    <li><strong>위치 정보</strong>: 날씨 기반 메뉴 추천을 위해 사용. 서버에 저장되지 않으며 기능 사용 후 즉시 파기됩니다.</li>
+    <li><strong>광고 식별자</strong>: 향후 광고 SDK 연동 시 사용될 수 있습니다.</li>
+  </ul>
+
+  <h2>2. 정보의 이용 목적</h2>
+  <ul>
+    <li>현재 날씨에 맞는 음식 카테고리 자동 추천</li>
+    <li>광고 서비스 제공 (추후 적용)</li>
+  </ul>
+
+  <h2>3. 제3자 제공</h2>
+  <p>수집된 정보는 제3자에게 제공되지 않습니다. 단, 날씨 정보 조회를 위해 OpenWeatherMap API에 위치 좌표가 전송되며, 이는 날씨 데이터 반환 후 즉시 사용되고 저장되지 않습니다.</p>
+
+  <h2>4. 보유 및 이용 기간</h2>
+  <p>Roly는 서버를 운영하지 않으므로 모든 데이터는 기기 내에서만 처리되고 즉시 파기됩니다.</p>
+
+  <h2>5. 위치 정보 권한 거부</h2>
+  <p>위치 권한을 거부하더라도 앱의 핵심 기능(룰렛 뽑기)은 정상적으로 이용 가능합니다. 다만 날씨 기반 자동 추천 기능은 제공되지 않습니다.</p>
+
+  <h2>6. 광고</h2>
+  <p>Roly는 무료 서비스이며, 광고를 포함하고 있습니다. 광고 노출 시 광고 식별자가 광고 플랫폼에 전달될 수 있습니다.</p>
+
+  <h2>7. 문의</h2>
+  <div class="contact">
+    <strong>개인정보 관련 문의</strong>
+    운영자: 개인 개발자<br>
+    이메일: sammyeom@gmail.com
+  </div>
+</div>
+
+<!-- 서비스 이용약관 -->
+<div class="section" id="terms">
+  <span class="updated">최종 업데이트: 2026년 4월</span>
+
+  <h2>1. 서비스 소개</h2>
+  <p>Roly(롤리)는 룰렛을 기반으로 한 랜덤 선택 도구입니다. 메뉴 선택, 당번 정하기 등 결정이 필요한 순간에 활용할 수 있는 무료 서비스입니다.</p>
+
+  <h2>2. 서비스 이용</h2>
+  <ul>
+    <li>본 서비스는 토스(Toss) 앱인토스(Apps in Toss) 플랫폼을 통해 제공됩니다.</li>
+    <li>별도의 회원가입 없이 이용 가능합니다.</li>
+    <li>만 14세 미만의 경우 법정대리인의 동의가 필요합니다.</li>
+  </ul>
+
+  <h2>3. 무료 서비스 및 광고</h2>
+  <p>Roly는 무료로 제공되는 서비스이며, 서비스 운영을 위해 광고가 포함될 수 있습니다. 광고는 서비스 이용 중 노출될 수 있으며, 이에 동의하지 않는 경우 서비스 이용이 제한될 수 있습니다.</p>
+
+  <h2>4. 서비스 변경 및 중단</h2>
+  <p>운영자는 서비스의 내용, 기능, 메뉴 항목 등을 사전 고지 없이 변경하거나 중단할 수 있습니다.</p>
+
+  <h2>5. 면책 조항</h2>
+  <ul>
+    <li>Roly는 랜덤 선택 결과에 대한 책임을 지지 않습니다.</li>
+    <li>서비스 이용으로 발생한 결과(식사 선택 등)에 대한 책임은 이용자 본인에게 있습니다.</li>
+    <li>천재지변, 서버 오류 등 불가항력적 상황으로 인한 서비스 중단에 대해 책임지지 않습니다.</li>
+  </ul>
+
+  <h2>6. 준거법</h2>
+  <p>본 약관은 대한민국 법령에 따라 해석되며, 분쟁 발생 시 운영자 주소지 관할 법원을 전속 관할로 합니다.</p>
+
+  <h2>7. 문의</h2>
+  <div class="contact">
+    <strong>서비스 관련 문의</strong>
+    운영자: 개인 개발자<br>
+    이메일: sammyeom@gmail.com
+  </div>
+</div>
+
+<script>
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (i === 0 && tab === 'privacy') || (i === 1 && tab === 'terms'));
+  });
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(tab).classList.add('active');
+}
+</script>
+</body>
+</html>
