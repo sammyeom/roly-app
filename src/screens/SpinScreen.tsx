@@ -61,6 +61,7 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
     const targetY = -((targetIdx - centerOffset) * ITEM_HEIGHT);
 
     // 이전 위치 초기화 후 애니메이션
+    translateY.stopAnimation();
     translateY.setValue(0);
     currentOffset.current = targetY;
 
@@ -68,8 +69,11 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
       toValue: targetY,
       duration: 2000,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(async () => {
+      useNativeDriver: false,
+    }).start(async ({ finished }) => {
+      // 애니메이션 종료 후 정확한 위치로 스냅
+      translateY.setValue(targetY);
+
       try {
         await generateHapticFeedback({ type: 'success' });
       } catch {

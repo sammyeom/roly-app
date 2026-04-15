@@ -28,6 +28,7 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<Tab>('roulette');
   const [inputText, setInputText] = useState<string>('');
   const [items, setItems] = useState<string[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [minText, setMinText] = useState<string>('1');
   const [maxText, setMaxText] = useState<string>('45');
   const [countText, setCountText] = useState<string>('6');
@@ -41,19 +42,23 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
     }
     setItems([...items, trimmed]);
     setInputText('');
+    setSelectedPresetId(null);
   }
 
   function handleRemoveItem(index: number): void {
     setItems(items.filter((_, i) => i !== index));
+    setSelectedPresetId(null);
   }
 
-  function handleSelectPreset(presetItems: string[]): void {
+  function handleSelectPreset(presetId: string, presetItems: string[]): void {
     if (presetItems.length === 0) {
       setItems([]);
+      setSelectedPresetId(presetId);
       Alert.alert('안내', '이름을 직접 추가해주세요.');
       return;
     }
     setItems(presetItems);
+    setSelectedPresetId(presetId);
   }
 
   function handleStartRoulette(): void {
@@ -127,6 +132,7 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
         <RouletteTab
           inputText={inputText}
           items={items}
+          selectedPresetId={selectedPresetId}
           onChangeInput={setInputText}
           onAddItem={handleAddItem}
           onRemoveItem={handleRemoveItem}
@@ -153,15 +159,16 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
 interface RouletteTabProps {
   inputText: string;
   items: string[];
+  selectedPresetId: string | null;
   onChangeInput: (text: string) => void;
   onAddItem: () => void;
   onRemoveItem: (index: number) => void;
-  onSelectPreset: (items: string[]) => void;
+  onSelectPreset: (id: string, items: string[]) => void;
   onStart: () => void;
 }
 
 function RouletteTab({
-  inputText, items, onChangeInput, onAddItem, onRemoveItem, onSelectPreset, onStart,
+  inputText, items, selectedPresetId, onChangeInput, onAddItem, onRemoveItem, onSelectPreset, onStart,
 }: RouletteTabProps) {
   return (
     <View style={styles.flex}>
@@ -173,15 +180,21 @@ function RouletteTab({
         {/* 프리셋 */}
         <Text style={styles.sectionLabel}>프리셋으로 빠르게</Text>
         <View style={styles.presetGrid}>
-          {PRESETS.map((preset) => (
-            <TouchableOpacity
-              key={preset.id}
-              style={styles.presetCard}
-              onPress={() => onSelectPreset(preset.items)}
-            >
-              <Text style={styles.presetLabel}>{preset.label}</Text>
-            </TouchableOpacity>
-          ))}
+          {PRESETS.map((preset) => {
+            const isSelected = selectedPresetId === preset.id;
+            return (
+              <TouchableOpacity
+                key={preset.id}
+                style={[styles.presetCard, isSelected && styles.presetCardSelected]}
+                onPress={() => onSelectPreset(preset.id, preset.items)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.presetLabel, isSelected && styles.presetLabelSelected]}>
+                  {preset.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* 항목 추가 */}
@@ -359,7 +372,13 @@ const styles = StyleSheet.create({
     borderColor: colors.grey100,
     justifyContent: 'center',
   },
+  presetCardSelected: {
+    borderColor: colors.blue500,
+    borderWidth: 2,
+    backgroundColor: colors.blue50,
+  },
   presetLabel: { fontSize: 14, color: colors.grey800, fontWeight: '600' },
+  presetLabelSelected: { color: colors.blue600 },
   // 입력 행
   inputRow: { flexDirection: 'row', gap: 8 },
   input: {
