@@ -101,16 +101,14 @@ export default function ResultScreen({ params, onRetry, onHome, onBack }: Result
     setIsSharing(true);
 
     try {
-      const shareLink = await getTossShareLink(
-        `intoss://roly-spinner?result=${encodeURIComponent(result)}`,
-      );
+      const shareLink = await getTossShareLink('intoss://roly-spinner');
       await share({ message: shareLink });
     } catch {
       Alert.alert('알림', '공유하는 중 오류가 발생했어요.');
     } finally {
       setIsSharing(false);
     }
-  }, [isSharing, result]);
+  }, [isSharing]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
