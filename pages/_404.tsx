@@ -1,6 +1,6 @@
 import React from 'react';
-import AppNavigator from '../src/App';
+import HomeScreen from '../src/screens/HomeScreen';
 
 export default function NotFoundPage() {
-  return <AppNavigator />;
+  return <HomeScreen />;
 }

@@ -14,22 +14,20 @@ import {
   getTossShareLink,
   share,
 } from '@apps-in-toss/framework';
-import NavigationBar from '../components/NavigationBar';
-import { type ResultParams } from '../App';
-
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-interface ResultScreenProps {
-  params: ResultParams;
-  onRetry: () => void;
-  onHome: () => void;
-  onBack: () => void;
-}
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@granite-js/native/@react-navigation/native';
+import type { NativeStackNavigationProp } from '@granite-js/native/@react-navigation/native-stack';
+import type { RootParamList } from '../types/navigation';
 
 // ─── ResultScreen ─────────────────────────────────────────────────────────────
 
-export default function ResultScreen({ params, onRetry, onHome, onBack }: ResultScreenProps) {
-  const { result, spinParams } = params;
+export default function ResultScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
+  const route = useRoute<RouteProp<RootParamList, '/result'>>();
+  const { result, spinParams } = route.params;
   const isNumber = spinParams.mode === 'number';
 
   // 등장 애니메이션
@@ -110,12 +108,22 @@ export default function ResultScreen({ params, onRetry, onHome, onBack }: Result
     }
   }, [isSharing]);
 
+  // ─── 다시 돌리기 / 처음으로 ─────────────────────────────────────────────
+
+  const handleRetry = useCallback((): void => {
+    // result 화면을 spin으로 교체하여 동일 파라미터로 재시작.
+    navigation.replace('/spin', spinParams);
+  }, [navigation, spinParams]);
+
+  const handleHome = useCallback((): void => {
+    // 스택 최상단(home)으로 복귀.
+    navigation.popToTop();
+  }, [navigation]);
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <View style={styles.container}>
-      <NavigationBar title="결과!" onBack={onBack} />
-
       <View style={styles.body}>
         {/* 🎉 이모지 */}
         <Animated.Text style={[styles.emojiDecor, { transform: [{ scale: emojiScale }] }]}>
@@ -143,7 +151,7 @@ export default function ResultScreen({ params, onRetry, onHome, onBack }: Result
 
       {/* 하단 버튼 영역 */}
       <View style={styles.buttonArea}>
-        <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
           <Text style={styles.retryButtonText}>🔄 다시 돌리기</Text>
         </TouchableOpacity>
 
@@ -157,7 +165,7 @@ export default function ResultScreen({ params, onRetry, onHome, onBack }: Result
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.homeButton} onPress={onHome}>
+        <TouchableOpacity style={styles.homeButton} onPress={handleHome}>
           <Text style={styles.homeButtonText}>처음으로</Text>
         </TouchableOpacity>
       </View>

@@ -9,9 +9,14 @@ import {
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
 import { generateHapticFeedback } from '@apps-in-toss/framework';
-import NavigationBar from '../components/NavigationBar';
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@granite-js/native/@react-navigation/native';
+import type { NativeStackNavigationProp } from '@granite-js/native/@react-navigation/native-stack';
 import { pickMultiple } from '../utils/random';
-import { type SpinParams, type ResultParams } from '../App';
+import type { RootParamList } from '../types/navigation';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -20,17 +25,12 @@ const VISIBLE_COUNT = 5;          // 홀수여야 가운데 항목이 명확함
 const REPEAT_COUNT = 30;          // 충분한 회전을 위해 횟수 증가
 const CENTER_INDEX = 2;           // 0, 1, [2], 3, 4 (5개 중 가운데)
 
-// ─── Props ───────────────────────────────────────────────────────────────────
-
-interface SpinScreenProps {
-  params: SpinParams;
-  onNavigateResult: (params: ResultParams) => void;
-  onBack: () => void;
-}
-
 // ─── SpinScreen ──────────────────────────────────────────────────────────────
 
-export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScreenProps) {
+export default function SpinScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
+  const route = useRoute<RouteProp<RootParamList, '/spin'>>();
+  const params = route.params;
   const { items, mode, count } = params;
   const drawCount = mode === 'number' ? Math.max(1, count ?? 1) : 1;
 
@@ -93,18 +93,16 @@ export default function SpinScreen({ params, onNavigateResult, onBack }: SpinScr
 
       // 정확히 중앙에 멈춘 것을 확인 시키기 위해 약간의 지연 후 이동
       setTimeout(() => {
-        onNavigateResult({ result: finalResult, spinParams: params });
+        navigation.navigate('/result', { result: finalResult, spinParams: params });
       }, 700);
     });
-  }, [isSpinning, items, mode, drawCount, translateY, params, onNavigateResult]);
+  }, [isSpinning, items, mode, drawCount, translateY, params, navigation]);
 
   const containerHeight = ITEM_HEIGHT * VISIBLE_COUNT;
   const highlightTop = CENTER_INDEX * ITEM_HEIGHT;
 
   return (
     <View style={styles.container}>
-      <NavigationBar title="Roly 🎲" onBack={onBack} />
-
       <View style={styles.body}>
         <View style={[styles.slotWrapper, { height: containerHeight }]}>
           {/* 하이라이트 바: 정확히 중앙 칸에 고정 */}

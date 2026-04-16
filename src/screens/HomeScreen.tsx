@@ -9,21 +9,19 @@ import {
   Alert,
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
-import NavigationBar from '../components/NavigationBar';
+import { useNavigation } from '@granite-js/native/@react-navigation/native';
+import type { NativeStackNavigationProp } from '@granite-js/native/@react-navigation/native-stack';
 import { PRESETS } from '../data/presets';
-import { type SpinParams } from '../App';
+import type { RootParamList, SpinParams } from '../types/navigation';
 
 // ─── Props ──────────────────────────────────────────────────────────────────
-
-interface HomeScreenProps {
-  onNavigateSpin: (params: SpinParams) => void;
-}
 
 type Tab = 'roulette' | 'number';
 
 // ─── HomeScreen ──────────────────────────────────────────────────────────────
 
-export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
+export default function HomeScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
   const [activeTab, setActiveTab] = useState<Tab>('roulette');
   const [inputText, setInputText] = useState<string>('');
   const [items, setItems] = useState<string[]>([]);
@@ -31,6 +29,10 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
   const [minText, setMinText] = useState<string>('1');
   const [maxText, setMaxText] = useState<string>('45');
   const [countText, setCountText] = useState<string>('6');
+
+  function pushSpin(params: SpinParams): void {
+    navigation.navigate('/spin', params);
+  }
 
   function handleAddItem(): void {
     const trimmed = inputText.trim();
@@ -66,7 +68,7 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
         Alert.alert('알림', '항목을 2개 이상 추가해주세요.');
         return;
       }
-      onNavigateSpin({ mode: 'roulette', items, label: '뭐 뽑을까?' });
+      pushSpin({ mode: 'roulette', items, label: '뭐 뽑을까?' });
     } catch {
       Alert.alert('오류', '시작할 수 없어요. 다시 시도해주세요.');
     }
@@ -96,7 +98,7 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
       }
 
       const rangeItems = Array.from({ length: max - min + 1 }, (_, i) => String(min + i));
-      onNavigateSpin({ mode: 'number', items: rangeItems, label: '번호 추첨', count });
+      pushSpin({ mode: 'number', items: rangeItems, label: '번호 추첨', count });
     } catch {
       Alert.alert('오류', '추첨할 수 없어요. 다시 시도해주세요.');
     }
@@ -104,8 +106,6 @@ export default function HomeScreen({ onNavigateSpin }: HomeScreenProps) {
 
   return (
     <View style={styles.container}>
-      <NavigationBar title="Roly 🎲" />
-
       {/* 탭 바 */}
       <View style={styles.tabBar}>
         <TouchableOpacity
