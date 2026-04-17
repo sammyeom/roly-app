@@ -14,6 +14,8 @@ import {
   getTossShareLink,
   share,
 } from '@apps-in-toss/framework';
+import { getRemainingSpins, addBonusSpin } from '../utils/spinCounter';
+import { useRewardAd } from '../hooks/useRewardAd';
 import {
   useNavigation,
   useRoute,
@@ -38,6 +40,15 @@ export default function ResultScreen() {
   const emojiScale = useRef(new Animated.Value(1)).current;
 
   const [isSharing, setIsSharing] = useState(false);
+  const remainingSpins = getRemainingSpins();
+  const needsAd = remainingSpins <= 0;
+
+  const handleReward = useCallback(() => {
+    addBonusSpin();
+    navigation.replace('/spin', spinParams);
+  }, [navigation, spinParams]);
+
+  const { status: adStatus, show: showAd } = useRewardAd(handleReward);
 
   // ─── Mount: 등장 애니메이션 + 햅틱 + 사용량 체크 ──────────────────────────
 
@@ -151,9 +162,21 @@ export default function ResultScreen() {
 
       {/* 하단 버튼 영역 */}
       <View style={styles.buttonArea}>
-        <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
-          <Text style={styles.retryButtonText}>🔄 다시 돌리기</Text>
-        </TouchableOpacity>
+        {needsAd ? (
+          <TouchableOpacity
+            style={[styles.retryButton, styles.rewardButton, adStatus !== 'loaded' && styles.buttonDisabled]}
+            onPress={showAd}
+            disabled={adStatus !== 'loaded'}
+          >
+            <Text style={styles.retryButtonText}>
+              {adStatus === 'loading' ? '광고 준비 중...' : adStatus === 'loaded' ? '🎬 광고 보고 1회 더 돌리기' : '광고를 불러올 수 없어요'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+            <Text style={styles.retryButtonText}>🔄 다시 돌리기 ({remainingSpins}회 남음)</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.shareButton, isSharing && styles.buttonDisabled]}
@@ -224,6 +247,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  rewardButton: {
+    backgroundColor: '#FF6B00',
   },
   retryButtonText: { color: colors.white, fontSize: 17, fontWeight: '700' },
 

@@ -9,10 +9,14 @@ import {
   Alert,
 } from 'react-native';
 import { colors } from '@toss/tds-react-native';
+import { InlineAd } from '@apps-in-toss/framework';
 import { useNavigation } from '@granite-js/native/@react-navigation/native';
 import type { NativeStackNavigationProp } from '@granite-js/native/@react-navigation/native-stack';
 import { PRESETS } from '../data/presets';
 import type { RootParamList, SpinParams } from '../types/navigation';
+
+// 토스 콘솔에서 발급받은 배너 광고 그룹 ID로 교체하세요
+const BANNER_AD_GROUP_ID = '<BANNER_AD_GROUP_ID>';
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -124,6 +128,11 @@ export default function HomeScreen() {
             번호 추첨
           </Text>
         </TouchableOpacity>
+      </View>
+
+      {/* 배너 광고 */}
+      <View style={styles.bannerAdContainer}>
+        <InlineAd adGroupId={BANNER_AD_GROUP_ID} variant="card" />
       </View>
 
       {activeTab === 'roulette' ? (
@@ -348,6 +357,11 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomColor: colors.blue500 },
   tabText: { fontSize: 15, fontWeight: '500', color: colors.grey500 },
   tabTextActive: { color: colors.blue500, fontWeight: '700' },
+  bannerAdContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 16 },
   sectionLabel: {
