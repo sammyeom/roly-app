@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { loadFullScreenAd, showFullScreenAd } from '@apps-in-toss/framework';
 
 // 토스 콘솔에서 발급받은 리워드 광고 그룹 ID로 교체하세요
-const REWARD_AD_GROUP_ID = '<REWARD_AD_GROUP_ID>';
+const REWARD_AD_GROUP_ID = 'ait.v2.live.67400484de194f39';
 
 type AdStatus = 'not_loaded' | 'loading' | 'loaded' | 'showing' | 'failed';
 
@@ -18,7 +18,7 @@ export function useRewardAd(onRewarded: () => void) {
     setStatus('loading');
 
     const cleanup = loadFullScreenAd({
-      options: { adGroupId: REWARD_AD_GROUP_ID },
+      options: { adUnitId: REWARD_AD_GROUP_ID },
       onEvent: (event) => {
         if (event.type === 'loaded') {
           setStatus('loaded');
@@ -42,7 +42,7 @@ export function useRewardAd(onRewarded: () => void) {
     setStatus('showing');
 
     showFullScreenAd({
-      options: { adGroupId: REWARD_AD_GROUP_ID },
+      options: { adUnitId: REWARD_AD_GROUP_ID },
       onEvent: (event) => {
         switch (event.type) {
           case 'userEarnedReward':

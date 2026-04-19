@@ -16,7 +16,7 @@ import { PRESETS } from '../data/presets';
 import type { RootParamList, SpinParams } from '../types/navigation';
 
 // 토스 콘솔에서 발급받은 배너 광고 그룹 ID로 교체하세요
-const BANNER_AD_GROUP_ID = '<BANNER_AD_GROUP_ID>';
+const BANNER_AD_GROUP_ID = 'ait.v2.live.e278ba2db60f41ce';
 
 // ─── Props ──────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ export default function HomeScreen() {
 
       {/* 배너 광고 */}
       <View style={styles.bannerAdContainer}>
-        <InlineAd adGroupId={BANNER_AD_GROUP_ID} variant="card" />
+        <InlineAd adUnitId={BANNER_AD_GROUP_ID} variant="card" />
       </View>
 
       {activeTab === 'roulette' ? (
