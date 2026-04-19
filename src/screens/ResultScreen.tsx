@@ -6,9 +6,8 @@ import {
   StyleSheet,
   Animated,
   Easing,
-  Alert,
 } from 'react-native';
-import { colors } from '@toss/tds-react-native';
+import { colors, useDialog } from '@toss/tds-react-native';
 import {
   generateHapticFeedback,
   getTossShareLink,
@@ -29,6 +28,7 @@ import type { RootParamList } from '../types/navigation';
 export default function ResultScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
   const route = useRoute<RouteProp<RootParamList, '/result'>>();
+  const dialog = useDialog();
   const { result, spinParams } = route.params;
   const isNumber = spinParams.mode === 'number';
 
@@ -36,21 +36,30 @@ export default function ResultScreen() {
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // 🎉 이모지 반복 애니메이션
+  // 이모지 반복 애니메이션
   const emojiScale = useRef(new Animated.Value(1)).current;
 
   const [isSharing, setIsSharing] = useState(false);
-  const remainingSpins = getRemainingSpins();
-  const needsAd = remainingSpins <= 0;
+  const [remainingSpins, setRemainingSpins] = useState(0);
+  const [spinsLoaded, setSpinsLoaded] = useState(false);
 
-  const handleReward = useCallback(() => {
-    addBonusSpin();
+  useEffect(() => {
+    void getRemainingSpins().then((spins) => {
+      setRemainingSpins(spins);
+      setSpinsLoaded(true);
+    });
+  }, []);
+
+  const needsAd = spinsLoaded && remainingSpins <= 0;
+
+  const handleReward = useCallback(async () => {
+    await addBonusSpin();
     navigation.replace('/spin', spinParams);
   }, [navigation, spinParams]);
 
   const { status: adStatus, show: showAd } = useRewardAd(handleReward);
 
-  // ─── Mount: 등장 애니메이션 + 햅틱 + 사용량 체크 ──────────────────────────
+  // ─── Mount: 등장 애니메이션 + 햅틱 ──────────────────────────
 
   useEffect(() => {
     // 등장 애니메이션
@@ -69,7 +78,7 @@ export default function ResultScreen() {
       }),
     ]).start();
 
-    // 🎉 이모지 반복 애니메이션 (scale 1.0 → 1.3 → 1.0 루프)
+    // 이모지 반복 애니메이션 (scale 1.0 → 1.3 → 1.0 루프)
     const emojiLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(emojiScale, {
@@ -113,11 +122,11 @@ export default function ResultScreen() {
       const shareLink = await getTossShareLink('intoss://roly-spinner');
       await share({ message: shareLink });
     } catch {
-      Alert.alert('알림', '공유하는 중 오류가 발생했어요.');
+      void dialog.openAlert({ title: '알림', description: '공유하는 중 오류가 발생했어요.' });
     } finally {
       setIsSharing(false);
     }
-  }, [isSharing]);
+  }, [isSharing, dialog]);
 
   // ─── 다시 돌리기 / 처음으로 ─────────────────────────────────────────────
 
@@ -136,7 +145,7 @@ export default function ResultScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.body}>
-        {/* 🎉 이모지 */}
+        {/* 이모지 */}
         <Animated.Text style={[styles.emojiDecor, { transform: [{ scale: emojiScale }] }]}>
           🎉
         </Animated.Text>
@@ -172,10 +181,14 @@ export default function ResultScreen() {
               {adStatus === 'loading' ? '광고 준비 중...' : adStatus === 'loaded' ? '🎬 광고 보고 1회 더 돌리기' : '광고를 불러올 수 없어요'}
             </Text>
           </TouchableOpacity>
-        ) : (
+        ) : spinsLoaded ? (
           <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
             <Text style={styles.retryButtonText}>🔄 다시 돌리기 ({remainingSpins}회 남음)</Text>
           </TouchableOpacity>
+        ) : (
+          <View style={[styles.retryButton, styles.buttonDisabled]}>
+            <Text style={styles.retryButtonText}>불러오는 중...</Text>
+          </View>
         )}
 
         <TouchableOpacity

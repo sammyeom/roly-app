@@ -16,7 +16,7 @@ import {
 } from '@granite-js/native/@react-navigation/native';
 import type { NativeStackNavigationProp } from '@granite-js/native/@react-navigation/native-stack';
 import { pickMultiple } from '../utils/random';
-import { useSpin, getRemainingSpins } from '../utils/spinCounter';
+import { useSpin } from '../utils/spinCounter';
 import type { RootParamList } from '../types/navigation';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ export default function SpinScreen() {
     if (isSpinning) return;
 
     // 무료 스핀 차감 (이미 보상으로 추가된 경우 포함)
-    useSpin();
+    void useSpin();
 
     setIsSpinning(true);
     setPhase('spinning');

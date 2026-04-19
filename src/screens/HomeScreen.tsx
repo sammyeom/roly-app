@@ -6,9 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
-import { colors } from '@toss/tds-react-native';
+import { colors, useDialog } from '@toss/tds-react-native';
 import { InlineAd } from '@apps-in-toss/framework';
 import { useNavigation } from '@granite-js/native/@react-navigation/native';
 import type { NativeStackNavigationProp } from '@granite-js/native/@react-navigation/native-stack';
@@ -26,6 +25,7 @@ type Tab = 'roulette' | 'number';
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootParamList>>();
+  const dialog = useDialog();
   const [activeTab, setActiveTab] = useState<Tab>('roulette');
   const [inputText, setInputText] = useState<string>('');
   const [items, setItems] = useState<string[]>([]);
@@ -42,7 +42,7 @@ export default function HomeScreen() {
     const trimmed = inputText.trim();
     if (trimmed.length === 0) return;
     if (items.includes(trimmed)) {
-      Alert.alert('알림', '이미 추가된 항목이에요.');
+      void dialog.openAlert({ title: '알림', description: '이미 추가된 항목이에요.' });
       return;
     }
     setItems([...items, trimmed]);
@@ -59,7 +59,7 @@ export default function HomeScreen() {
     if (presetItems.length === 0) {
       setItems([]);
       setSelectedPresetId(presetId);
-      Alert.alert('안내', '이름을 직접 추가해주세요.');
+      void dialog.openAlert({ title: '안내', description: '이름을 직접 추가해주세요.' });
       return;
     }
     setItems(presetItems);
@@ -69,12 +69,12 @@ export default function HomeScreen() {
   function handleStartRoulette(): void {
     try {
       if (items.length < 2) {
-        Alert.alert('알림', '항목을 2개 이상 추가해주세요.');
+        void dialog.openAlert({ title: '알림', description: '항목을 2개 이상 추가해주세요.' });
         return;
       }
       pushSpin({ mode: 'roulette', items, label: '뭐 뽑을까?' });
     } catch {
-      Alert.alert('오류', '시작할 수 없어요. 다시 시도해주세요.');
+      void dialog.openAlert({ title: '오류', description: '시작할 수 없어요. 다시 시도해주세요.' });
     }
   }
 
@@ -85,26 +85,26 @@ export default function HomeScreen() {
       const count = parseInt(countText, 10);
 
       if (isNaN(min) || isNaN(max) || isNaN(count)) {
-        Alert.alert('알림', '숫자를 올바르게 입력해주세요.');
+        void dialog.openAlert({ title: '알림', description: '숫자를 올바르게 입력해주세요.' });
         return;
       }
       if (min >= max) {
-        Alert.alert('알림', '최솟값은 최댓값보다 작아야 해요.');
+        void dialog.openAlert({ title: '알림', description: '최솟값은 최댓값보다 작아야 해요.' });
         return;
       }
       if (max - min > 999) {
-        Alert.alert('알림', '범위는 1000 이하로 설정해주세요.');
+        void dialog.openAlert({ title: '알림', description: '범위는 1000 이하로 설정해주세요.' });
         return;
       }
       if (count < 1 || count > max - min + 1) {
-        Alert.alert('알림', `개수는 1 이상 ${max - min + 1} 이하로 설정해주세요.`);
+        void dialog.openAlert({ title: '알림', description: `개수는 1 이상 ${max - min + 1} 이하로 설정해주세요.` });
         return;
       }
 
       const rangeItems = Array.from({ length: max - min + 1 }, (_, i) => String(min + i));
       pushSpin({ mode: 'number', items: rangeItems, label: '번호 추첨', count });
     } catch {
-      Alert.alert('오류', '추첨할 수 없어요. 다시 시도해주세요.');
+      void dialog.openAlert({ title: '오류', description: '추첨할 수 없어요. 다시 시도해주세요.' });
     }
   }
 
