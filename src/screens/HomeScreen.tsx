@@ -132,7 +132,7 @@ export default function HomeScreen() {
 
       {/* 배너 광고 */}
       <View style={styles.bannerAdContainer}>
-        <InlineAd adUnitId={BANNER_AD_GROUP_ID} variant="card" />
+        <InlineAd adGroupId={BANNER_AD_GROUP_ID} variant="card" />
       </View>
 
       {activeTab === 'roulette' ? (
