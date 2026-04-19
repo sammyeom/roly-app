@@ -18,7 +18,7 @@ export function useRewardAd(onRewarded: () => void) {
     setStatus('loading');
 
     const cleanup = loadFullScreenAd({
-      options: { adUnitId: REWARD_AD_GROUP_ID },
+      options: { adGroupId: REWARD_AD_GROUP_ID },
       onEvent: (event) => {
         if (event.type === 'loaded') {
           setStatus('loaded');
@@ -42,7 +42,7 @@ export function useRewardAd(onRewarded: () => void) {
     setStatus('showing');
 
     showFullScreenAd({
-      options: { adUnitId: REWARD_AD_GROUP_ID },
+      options: { adGroupId: REWARD_AD_GROUP_ID },
       onEvent: (event) => {
         switch (event.type) {
           case 'userEarnedReward':
